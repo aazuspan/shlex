@@ -1,0 +1,12 @@
+name = "shlex"
+version = "1.0.0"
+
+description = "Split shell commands into words"
+licences = ["MIT"]
+repository = { type = "github", user = "aazuspan", repo = "shlex" }
+
+[dependencies]
+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
+
+[dev_dependencies]
+gleeunit = ">= 1.0.0 and < 2.0.0"
