@@ -13,7 +13,7 @@ import shlex
 
 pub fn main() -> Nil {
   let assert Ok(tokens) = shlex.split("git commit -m 'hello world!'")
-  // ["git", "commit", "-m", "hello worlds!"]
+  // ["git", "commit", "-m", "hello world!"]
 }
 ```
 
