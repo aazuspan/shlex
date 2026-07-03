@@ -5,6 +5,53 @@ pub fn main() -> Nil {
   gleeunit.main()
 }
 
+pub fn quote_wraps_empty_input_test() {
+  assert shlex.quote("") == "''"
+}
+
+pub fn quote_leaves_safe_string_unquoted_test() {
+  assert shlex.quote("foobar") == "foobar"
+}
+
+pub fn quote_wraps_string_with_spaces_test() {
+  assert shlex.quote("foo bar") == "'foo bar'"
+}
+
+pub fn quote_leaves_safe_punctuation_unquoted_test() {
+  assert shlex.quote("AZaz09_./-+=:@%") == "AZaz09_./-+=:@%"
+}
+
+pub fn quote_wraps_shell_metacharacters_test() {
+  assert shlex.quote("foo; rm -rf /") == "'foo; rm -rf /'"
+}
+
+pub fn quote_escapes_embedded_single_quotes_test() {
+  assert shlex.quote("foo'bar") == "'foo'\"'\"'bar'"
+}
+
+pub fn quote_round_trips_unsafe_input_as_single_token_test() {
+  let unsafe_input = "$(touch /tmp/oops); echo hacked"
+
+  assert shlex.split(shlex.quote(unsafe_input)) == Ok([unsafe_input])
+}
+
+pub fn quote_round_trips_embedded_single_quotes_as_single_token_test() {
+  let unsafe_input = "it's; $(still unsafe)"
+
+  assert shlex.split(shlex.quote(unsafe_input)) == Ok([unsafe_input])
+}
+
+pub fn join_quotes_each_argument_and_separates_with_spaces_test() {
+  assert shlex.join(["echo", "foo bar", "it's"])
+    == "echo 'foo bar' 'it'\"'\"'s'"
+}
+
+pub fn join_round_trips_multiple_unsafe_arguments_test() {
+  let args = ["echo", "$(touch /tmp/oops)", "semi;colon", "it's ok"]
+
+  assert shlex.split(shlex.join(args)) == Ok(args)
+}
+
 pub fn split_keeps_plain_dollar_signs_test() {
   assert shlex.split("foo$baz") == Ok(["foo$baz"])
 }

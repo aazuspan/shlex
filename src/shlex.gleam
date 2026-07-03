@@ -1,4 +1,6 @@
+import gleam/bool
 import gleam/list
+import gleam/set
 import gleam/string
 
 // A list of single graphemes split from a string input
@@ -33,6 +35,53 @@ pub type LexError {
 /// ```
 pub fn split(input: String) -> Result(Tokens, LexError) {
   input |> string.to_graphemes |> continue([])
+}
+
+/// Concatenate a list of string inputs into an escaped shell command.
+/// 
+/// This is a convenience function that applies ``shlex.quote`` to each element
+/// and joins the result. It is the inverse of ``shlex.split``. 
+/// 
+/// __Warning__: See ``shlex.quote`` for potential vulnerabilities in
+/// non-POSIX and interactive shells.
+/// 
+/// ## Examples
+/// ```gleam
+/// let unsafe_input = "foo; cat ~/.ssh/id_rsa"
+/// assert shlex.join(["git", "commit", "-m", unsafe_input])
+///   == "git commit -m 'foo; cat ~/.ssh/id_rsa'"
+/// ```
+pub fn join(input: List(String)) -> String {
+  input |> list.map(quote) |> string.join(" ")
+}
+
+/// Escape a string input into a shell word.
+/// 
+/// __Warning__: The output is safe for POSIX shell parsing, but may be 
+/// vulnerable to shell injection in non-POSIX-compliant shells or interactive 
+/// shells with history expansion, quick substitution, or other parsing 
+/// extensions.
+/// 
+/// ## Examples
+/// 
+/// ```gleam
+/// let unsafe_input = "foo; cat ~/.ssh/id_rsa"
+/// assert shlex.quote(unsafe_input) == "'foo; cat ~/.ssh/id_rsa'"
+/// ```
+pub fn quote(input: String) -> String {
+  let safe =
+    "%+,-./0123456789:=@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz"
+    |> string.to_graphemes
+    |> set.from_list
+  let unsafe_inputs =
+    input
+    |> string.to_graphemes
+    |> set.from_list
+    |> set.difference(safe)
+
+  use <- bool.guard(string.is_empty(input), "''")
+  use <- bool.guard(set.is_empty(unsafe_inputs), input)
+  "'" <> string.replace(input, "'", "'\"'\"'") <> "'"
 }
 
 fn continue(input: Graphemes, acc: Tokens) -> Result(Tokens, LexError) {
