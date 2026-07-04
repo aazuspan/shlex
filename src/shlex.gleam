@@ -184,7 +184,8 @@ fn double_quote(
 /// Merge the character buffer into a token and push it onto the accumulator
 fn push_buffer(buf: Buffer, acc: Tokens) -> Tokens {
   case buf {
-    [] -> acc
+    // An empty buffer tokenizes to an empty string, e.g. "''" -> [""]
+    [] -> ["", ..acc]
     _ -> [buf |> list.reverse |> string.join(""), ..acc]
   }
 }

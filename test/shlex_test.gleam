@@ -1,3 +1,5 @@
+import gleam/list
+import gleam/string
 import gleeunit
 import shlex
 
@@ -10,7 +12,9 @@ pub fn quote_wraps_empty_input_test() {
 }
 
 pub fn quote_leaves_safe_string_unquoted_test() {
-  assert shlex.quote("foobar") == "foobar"
+  let safe =
+    "%+,-./0123456789:=@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz"
+  assert shlex.quote(safe) == safe
 }
 
 pub fn quote_wraps_string_with_spaces_test() {
@@ -210,4 +214,126 @@ pub fn split_ignores_comment_only_lines_between_tokens_test() {
 
 pub fn split_ignores_comment_until_end_of_input_test() {
   assert shlex.split("foo # comment ends at EOF") == Ok(["foo"])
+}
+
+pub fn quote_matches_python_test() {
+  // Ported from Python's shlex tests
+  let unicode_sample = "éàß"
+  let unsafe = "\"`$\\!" <> unicode_sample
+  unsafe
+  |> string.to_graphemes
+  |> list.each(fn(u) {
+    assert shlex.quote("test" <> u <> "name") == "'test" <> u <> "name'"
+
+    assert shlex.quote("test" <> u <> "'name'")
+      == "'test" <> u <> "'\"'\"'name'\"'\"''"
+  })
+}
+
+pub fn split_matches_python_test() {
+  get_test_cases()
+  |> list.each(fn(test_case) {
+    assert shlex.split(test_case.0) == Ok(test_case.1)
+      as { "Split failed with input " <> test_case.0 }
+  })
+}
+
+pub fn join_matches_python_test() {
+  let test_cases = [
+    #(["a ", "b"], "'a ' b"),
+    #(["a", " b"], "a ' b'"),
+    #(["a", " ", "b"], "a ' ' b"),
+    #(["\"a", "b\""], "'\"a' 'b\"'"),
+  ]
+
+  test_cases
+  |> list.each(fn(test_case) {
+    assert shlex.join(test_case.0) == test_case.1
+  })
+}
+
+pub fn join_roundtrip_test() {
+  get_test_cases()
+  |> list.each(fn(test_case) {
+    let joined = shlex.join(test_case.1)
+    let resplit = shlex.split(joined)
+    assert resplit == Ok(test_case.1)
+  })
+}
+
+/// Recreated from Python's shlex test cases, which were originally from 
+/// shellwords by Hartmut Goebel.
+fn get_test_cases() -> List(#(String, List(String))) {
+  [
+    #("x", ["x"]),
+    #("foo bar", ["foo", "bar"]),
+    #(" foo bar", ["foo", "bar"]),
+    #(" foo bar ", ["foo", "bar"]),
+    #("foo   bar    bla     fasel", ["foo", "bar", "bla", "fasel"]),
+    #("x y  z              xxxx", ["x", "y", "z", "xxxx"]),
+    #("\\x bar", ["x", "bar"]),
+    #("\\ x bar", [" x", "bar"]),
+    #("\\ bar", [" bar"]),
+    #("foo \\x bar", ["foo", "x", "bar"]),
+    #("foo \\ x bar", ["foo", " x", "bar"]),
+    #("foo \\ bar", ["foo", " bar"]),
+    #("foo \"bar\" bla", ["foo", "bar", "bla"]),
+    #("\"foo\" \"bar\" \"bla\"", ["foo", "bar", "bla"]),
+    #("\"foo\" bar \"bla\"", ["foo", "bar", "bla"]),
+    #("\"foo\" bar bla", ["foo", "bar", "bla"]),
+    #("foo 'bar' bla", ["foo", "bar", "bla"]),
+    #("'foo' 'bar' 'bla'", ["foo", "bar", "bla"]),
+    #("'foo' bar 'bla'", ["foo", "bar", "bla"]),
+    #("'foo' bar bla", ["foo", "bar", "bla"]),
+    #("blurb foo\"bar\"bar\"fasel\" baz", ["blurb", "foobarbarfasel", "baz"]),
+    #("blurb foo'bar'bar'fasel' baz", ["blurb", "foobarbarfasel", "baz"]),
+    #("\"\"", [""]),
+    #("''", [""]),
+    #("foo \"\" bar", ["foo", "", "bar"]),
+    #("foo '' bar", ["foo", "", "bar"]),
+    #("foo \"\" \"\" \"\" bar", ["foo", "", "", "", "bar"]),
+    #("foo '' '' '' bar", ["foo", "", "", "", "bar"]),
+    #("\\\"", ["\""]),
+    #("\"\\\"\"", ["\""]),
+    #("\"foo\\ bar\"", ["foo\\ bar"]),
+    #("\"foo\\\\ bar\"", ["foo\\ bar"]),
+    #("\"foo\\\\ bar\\\"\"", ["foo\\ bar\""]),
+    #("\"foo\\\\\" bar\\\"", ["foo\\", "bar\""]),
+    #("\"foo\\\\ bar\\\" dfadf\"", ["foo\\ bar\" dfadf"]),
+    #("\"foo\\\\\\ bar\\\" dfadf\"", ["foo\\\\ bar\" dfadf"]),
+    #("\"foo\\\\\\x bar\\\" dfadf\"", ["foo\\\\x bar\" dfadf"]),
+    #("\"foo\\x bar\\\" dfadf\"", ["foo\\x bar\" dfadf"]),
+    #("\\'", ["'"]),
+    #("'foo\\ bar'", ["foo\\ bar"]),
+    #("'foo\\\\ bar'", ["foo\\\\ bar"]),
+    #("\"foo\\\\\\x bar\\\" df'a\\ 'df\"", ["foo\\\\x bar\" df'a\\ 'df"]),
+    #("\\\"foo", ["\"foo"]),
+    #("\\\"foo\\x", ["\"foox"]),
+    #("\"foo\\x\"", ["foo\\x"]),
+    #("\"foo\\ \"", ["foo\\ "]),
+    #("foo\\ xx", ["foo xx"]),
+    #("foo\\ x\\x", ["foo xx"]),
+    #("foo\\ x\\x\\\"", ["foo xx\""]),
+    #("\"foo\\ x\\x\"", ["foo\\ x\\x"]),
+    #("\"foo\\ x\\x\\\\\"", ["foo\\ x\\x\\"]),
+    #("\"foo\\ x\\x\\\\\"\"foobar\"", ["foo\\ x\\x\\foobar"]),
+    #("\"foo\\ x\\x\\\\\"\\'\"foobar\"", ["foo\\ x\\x\\'foobar"]),
+    #("\"foo\\ x\\x\\\\\"\\'\"fo'obar\"", ["foo\\ x\\x\\'fo'obar"]),
+    #("\"foo\\ x\\x\\\\\"\\'\"fo'obar\" 'don'\\''t'", [
+      "foo\\ x\\x\\'fo'obar",
+      "don't",
+    ]),
+    #("\"foo\\ x\\x\\\\\"\\'\"fo'obar\" 'don'\\''t' \\\\", [
+      "foo\\ x\\x\\'fo'obar",
+      "don't",
+      "\\",
+    ]),
+    #("'foo\\ bar'", ["foo\\ bar"]),
+    #("'foo\\\\ bar'", ["foo\\\\ bar"]),
+    #("foo\\ bar", ["foo bar"]),
+    // Modified to match the default ``comments=False`` behavior
+    #("foo#bar\nbaz", ["foo#bar", "baz"]),
+    #(":-) ;-)", [":-)", ";-)"]),
+    #("áéíóú", ["áéíóú"]),
+  ]
 }
