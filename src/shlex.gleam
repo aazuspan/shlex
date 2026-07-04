@@ -17,7 +17,7 @@ type Buffer =
 pub type LexError {
   /// A quote was opened without a matching closing quote
   UnclosedQuotation
-  // An escape was encountered without a following character to escape
+  /// An escape was encountered without a following character to escape
   NoEscapedCharacter
 }
 
@@ -28,8 +28,8 @@ pub type LexError {
 /// ## Examples
 /// 
 /// ```gleam
-/// let assert Ok(tokens) = split("git commit -m 'hello world!'")
-/// assert tokens == ["git", "commit", "-m", "hello worlds!"]
+/// let assert Ok(tokens) = shlex.split("git commit -m 'hello world!'")
+/// assert tokens == ["git", "commit", "-m", "hello world!"]
 /// ```
 pub fn split(input: String) -> Result(Tokens, LexError) {
   input |> string.to_graphemes |> continue([])
